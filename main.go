@@ -45,9 +45,13 @@ func (m *metricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			n = defaultMetricsNumber
 		}
+		w.Header().Add("Content-Type", "application/json")
 		i, err := w.Write(m.rawMetrics(n))
 		if err != nil {
-			log.Errorf("Failed to write rawMetrics at %d byte: %v", i, err)
+			msg := fmt.Sprintf("Failed to write rawMetrics at %d byte: %v", i, err)
+			log.Error(msg)
+			w.WriteHeader(500)
+			w.Write([]byte(msg))
 		}
 	case "/metrics":
 		s := r.URL.Query().Get("baseline")
@@ -61,16 +65,20 @@ func (m *metricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			n = defaultMetricsNumber
 		}
+		w.Header().Add("Content-Type", "application/json")
 		i, err := w.Write(m.baselineMetrics(k, n))
 		if err != nil {
-			log.Errorf("Failed to write baselineMetrics at %d byte: %v", i, err)
+			msg := fmt.Sprintf("Failed to write baselineMetrics at %d byte: %v", i, err)
+			log.Error(msg)
+			w.WriteHeader(500)
+			w.Write([]byte(msg))
 		}
 	}
 }
 
 func (m *metricsHandler) baselineMetrics(baseline, n int) []byte {
 	if 0 >= n || n >= window {
-		log.Errorf("Failed to get rawMetrics valid range for n: 0 < %d < %d", n, window)
+		log.Errorf("Failed to get baselineMetrics valid range for n: 0 < %d < %d", n, window)
 		return nil
 	}
 
@@ -100,8 +108,8 @@ func (m *metricsHandler) baselineMetrics(baseline, n int) []byte {
 	// % curl http://localhost:8080/metrics\?baseline\=10000\&n\=110
 	// above_baseline_count 35
 	// above_baseline_area_sum 531161
-	fmt.Fprintf(buf, "above_baseline_count %d\n", countAboveBaseline)
-	fmt.Fprintf(buf, "above_baseline_area_sum %d\n", countAreaAboveBaseline)
+	fmt.Fprintf(buf, `{"above_baseline_count":%d`, countAboveBaseline)
+	fmt.Fprintf(buf, `,"above_baseline_area_sum":%d}`, countAreaAboveBaseline)
 
 	return buf.Bytes()
 }
@@ -115,21 +123,40 @@ func (m *metricsHandler) rawMetrics(n int) []byte {
 	buf := &bytes.Buffer{}
 	cur := sec
 
-	// get last n values from ring structure
-	for j := cur - n; j < cur; j++ {
-		// x is always positive, because j can be negative adjust by +window, %window is the ring
-		x := (j + window) % window
-		stat := stats[x]
+	// create {"k1":[v1,v2,v3,..],"k2":[..],..,"kN":[..]}
+	for i, k := range keys {
+		if i == 0 {
+			// first
+			fmt.Fprintf(buf, `{"%s":[`, k)
+		} else {
+			// middle
+			fmt.Fprintf(buf, `,"%s":[`, k)
+		}
+		// get last n values from ring structure
+		for j := cur - n; j < cur; j++ {
+			// x is always positive, because j can be negative adjust by +window, %window is the ring
+			x := (j + window) % window
+			stat := stats[x]
 
-		// % curl http://localhost:8080/raw\?n\=2
-		// 267 receive_bytes 19305901433
-		// 267 transmit_bytes 9003338538
-		// 268 receive_bytes 19305902078
-		// 268 transmit_bytes 9003338768
-		for i, k := range keys {
-			fmt.Fprintf(buf, "%d %s %v\n", x, k, stat[i])
+			// % curl http://localhost:8080/raw\?n\=2
+			// 267 receive_bytes 19305901433
+			// 267 transmit_bytes 9003338538
+			// 268 receive_bytes 19305902078
+			// 268 transmit_bytes 9003338768
+			//for i, k := range keys {
+			// 	fmt.Fprintf(buf, "%d %s %v\n", x, k, stat[i])
+			// }
+
+			fmt.Fprintf(buf, `%d`, stat[i])
+
+			if j+1 == cur {
+				buf.WriteString(`]`)
+			} else {
+				buf.WriteString(`,`)
+			}
 		}
 	}
+	buf.WriteString("}")
 	return buf.Bytes()
 }
 
