@@ -20,14 +20,33 @@ to set the value up to we ignore the sum of rx and tx bytes.
 
 ```
 # metric value
-% curl http://localhost:8080/metrics\?baseline\=10000\&n\=10
-above_baseline_count 5
-above_baseline_area_sum 166319
+% curl http://localhost:8080/metrics\?baseline\=10000\&n\=110 | jq .
+{
+  "above_baseline_count": 3,
+  "above_baseline_area_sum": 526611
+}
+
 
 # index metric value
-% curl http://localhost:8080/raw\?n\=2
-207 receive_bytes 19313959443
-207 transmit_bytes 9011116210
-208 receive_bytes 19313965946
-208 transmit_bytes 9011125969
+% curl http://localhost:8080/raw\?n\=7 | jq .
+{
+  "receive_bytes": [
+    23737390921,
+    23737395660,
+    23737682567,
+    23737686489,
+    23737693129,
+    23738061441,
+    23738205784
+  ],
+  "transmit_bytes": [
+    10272229724,
+    10272238330,
+    10272243729,
+    10272250883,
+    10272257617,
+    10272272320,
+    10272277800
+  ]
+}
 ```
