@@ -105,9 +105,6 @@ func (m *metricsHandler) baselineMetrics(baseline, n int) []byte {
 		}
 	}
 
-	// % curl http://localhost:8080/metrics\?baseline\=10000\&n\=110
-	// above_baseline_count 35
-	// above_baseline_area_sum 531161
 	fmt.Fprintf(buf, `{"above_baseline_count":%d`, countAboveBaseline)
 	fmt.Fprintf(buf, `,"above_baseline_area_sum":%d}`, countAreaAboveBaseline)
 
@@ -129,7 +126,6 @@ func (m *metricsHandler) rawMetrics(n int) []byte {
 			// first
 			fmt.Fprintf(buf, `{"%s":[`, k)
 		} else {
-			// middle
 			fmt.Fprintf(buf, `,"%s":[`, k)
 		}
 		// get last n values from ring structure
@@ -137,16 +133,6 @@ func (m *metricsHandler) rawMetrics(n int) []byte {
 			// x is always positive, because j can be negative adjust by +window, %window is the ring
 			x := (j + window) % window
 			stat := stats[x]
-
-			// % curl http://localhost:8080/raw\?n\=2
-			// 267 receive_bytes 19305901433
-			// 267 transmit_bytes 9003338538
-			// 268 receive_bytes 19305902078
-			// 268 transmit_bytes 9003338768
-			//for i, k := range keys {
-			// 	fmt.Fprintf(buf, "%d %s %v\n", x, k, stat[i])
-			// }
-
 			fmt.Fprintf(buf, `%d`, stat[i])
 
 			if j+1 == cur {
